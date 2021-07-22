@@ -10,13 +10,18 @@ enum typeOfModeling
 int main(int argc, char* argv[])
 {
 	int typeOfM = CombustionParallelepiped;
-	if (typeOfM == CombustionParallelepiped)
+	std::string destanation = "rhotnt_p_clip.vtk";
+	if (typeOfM == CombustionParallelepiped || typeOfM == CombustionCylinder)
 	{
-
-	}
-	if (typeOfM == CombustionCylinder)
-	{
-
+		CombustionModel* model = new CombustionModel();
+		model->init(destanation, typeOfM);
+		model->setSaveDataStep(true);
+		model->setShowTimeEachEpoch(true);
+		model->simulate("temp.txt", "N.txt");
+		model->showReactionDuration();
+		model->drawPlotN();
+		model->drawPlotdN();
+		model->drawPlotTemp();
 	}
 	if (typeOfM == Fireline) {
 		FireLine* line = new FireLine();

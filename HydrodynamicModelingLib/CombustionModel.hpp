@@ -14,6 +14,11 @@ namespace plt = matplotlibcpp;
 class CombustionModel
 {
 protected:
+	enum typeOfModeling
+	{
+		Parallelepiped,
+		Cylinder
+	};
 	//Начальные значения переменных
 	double P = 1e10;//10GPa
 	double cv = 1300;// Дж/(кг*К)
@@ -42,6 +47,7 @@ protected:
 	bool showTimeEachEpoch = true;
 	double timeStep_mult = 0.00005;
 	double addToTimeStep = 0.005;//
+	int typeOfFigure = Parallelepiped;
 public:
 	CombustionModel() = default;
 	virtual void init(const std::string& density_source = "", int rand_size = 10);
@@ -172,15 +178,16 @@ namespace
 
 }
 
-inline void CombustionModel::init(const std::string& density_source, int rand_size)
+inline void CombustionModel::init(const std::string& density_source, int typeOfFigure_)
 {
+	typeOfFigure = typeOfFigure_;
 	if (show_logs) { std::cout << "Starting of model initialization" << std::endl; }
 	//density data
 	if (show_logs) { std::cout << "!!WARNING!! Now density use <int> parametr" << std::endl; }
 	array3d<unsigned short> density_tmp;
 	//initialization of density
 	if (show_logs) { std::cout << "Initialization of density..." << std::endl; }
-	if (!init_density(density_tmp, rand_size, ro1, density_source))
+	if (!init_density(density_tmp, 10, ro1, density_source))
 	{
 		if (show_logs) { std::cout << "Problem with density initialization." << std::endl; }
 		return;
@@ -256,50 +263,45 @@ inline void CombustionModel::simulate(const std::string& temp_name, const std::s
 	const double temp_tau = 1.0 / 6 * pow(dx, 2) * cv * ro2 / lambda;
 	int sub = 8;
 	double mean_val = mean(N);
+	bool figureCondition = true;
+	double radius = Temp.x() / 2;
 	while (substance_exist(N))
 	{
 		double tmp = 0.0;
-		//#pragma omp parallel for collapse(3) reduction(+:tmp)
+#pragma omp parallel for collapse(3) reduction(+:tmp)
 		for (int k = 1; k < Temp.z() - 1; ++k)
 		{
 			for (int j = 1; j < Temp.y() - 1; ++j)
 			{
 				for (int i = 1; i < Temp.x() - 1; ++i)
 				{
-					if(k==0)
+					if (typeOfFigure == Cylinder)
 					{
-						k = 1;
+						figureCondition = sqrt(pow(radius - i, 2) + pow(radius - j, 2)) < radius;
 					}
-					double dN = -N(i, j, k) * k_B * exp(-E / Temp(i, j, k)) * tau;
-					if (isnan(dN) || isinf(dN))
-					{
-						if (show_logs)std::cout << "The scheme is destroyed. " << std::endl << "dN is:" << dN <<
-							std::endl << "Temp is:" << Temp(i, j, k) << std::endl;
-						scheme_state = false; //i = j = k = INT32_MAX - 2;
-						continue;
-					}
-					Temp_new(i, j, k) = Temp(i, j, k) - heat / cv * dN +
-						tau * lambda / (pow(dx, 2) * cv * ro2) *
-						(Temp(i - 1, j, k) + Temp(i + 1, j, k) + Temp(i, j - 1, k) + Temp(i, j + 1, k) +
-							Temp(i, j, k - 1) + Temp(i, j, k + 1) - 6 * Temp(i, j, k));
-					if(Temp_new(i,j,k)<0.0)
-					{
-						std::cout << Temp_new(i, j, k) << std::endl;
-						std::cout << Temp(i, j, k) << std::endl;
-						std::cout << -heat / cv * dN << std::endl;
-						std::cout << tau * lambda / (pow(dx, 2) * cv * ro2) *
+					if (figureCondition) {
+						double dN = -N(i, j, k) * k_B * exp(-E / Temp(i, j, k)) * tau;
+						if (isnan(dN) || isinf(dN))
+						{
+							if (show_logs)std::cout << "The scheme is destroyed. " << std::endl << "dN is:" << dN <<
+								std::endl << "Temp is:" << Temp(i, j, k) << std::endl;
+							scheme_state = false; //i = j = k = INT32_MAX - 2;
+							continue;
+						}
+						Temp_new(i, j, k) = Temp(i, j, k) - heat / cv * dN +
+							tau * lambda / (pow(dx, 2) * cv * ro2) *
 							(Temp(i - 1, j, k) + Temp(i + 1, j, k) + Temp(i, j - 1, k) + Temp(i, j + 1, k) +
-								Temp(i, j, k - 1) + Temp(i, j, k + 1) - 6 * Temp(i, j, k)) << std::endl;
+								Temp(i, j, k - 1) + Temp(i, j, k + 1) - 6 * Temp(i, j, k));
+						if (isnan(Temp_new(i, j, k)) || isinf(Temp_new(i, j, k)))
+						{
+							if (show_logs)std::cout << "The scheme is destroyed. " << std::endl << "dN is:" << dN <<
+								std::endl << "Temp is:" << Temp(i, j, k) << std::endl;
+							scheme_state = false; //i = j = k = INT32_MAX - 2;
+							continue;
+						}
+						N(i, j, k) += dN;
+						tmp += dN;
 					}
-					//if (isnan(Temp_new(i, j, k)) || isinf(Temp_new(i, j, k)))
-					//{
-					//	if (show_logs)std::cout << "The scheme is destroyed. " << std::endl << "dN is:" << dN <<
-					//		std::endl << "Temp is:" << Temp(i, j, k) << std::endl;
-					//	scheme_state = false; //i = j = k = INT32_MAX - 2;
-					//	continue;
-					//}
-					N(i, j, k) += dN;
-					tmp += dN;
 				}
 			}
 		}
