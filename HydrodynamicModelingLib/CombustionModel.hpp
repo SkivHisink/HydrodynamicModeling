@@ -218,7 +218,7 @@ public:
 		N_mean.push_back(mean(N));
 		time_N.push_back(0);
 		dN_val.push_back(0);
-		array3d<double> new_Temp = array3d<double>(Temp.x(), Temp.y(), Temp.z() / 1.5);
+		/*array3d<double> new_Temp = array3d<double>(Temp.x(), Temp.y(), Temp.z() / 1.5);
 		for (int i = 0; i < new_Temp.x(); ++i)
 		{
 			for (int j = 0; j < new_Temp.y(); ++j) {
@@ -241,10 +241,10 @@ public:
 				}
 			}
 		}
-		array3d2vtk(new_Temp, "temp_init" + std::to_string(P) + ".vtk");
-		array3d2vtk(Temp, "temp2_init" + std::to_string(P) + ".vtk");
+		array3d2vtk(new_Temp, "temp2_init" + std::to_string(P) + ".vtk");*/
+		array3d2vtk(Temp, "temp_init" + std::to_string(P) + ".vtk");
 		array3d2vtk(density, "density_init" + std::to_string(P) + ".vtk");
-		Temp = new_Temp;
+		//Temp = new_Temp;
 		Temp_mean.push_back(mean(Temp));
 		array3d2vtk(Temp, "temp_init.vtk");
 		tau = max_tau(Temp.max()); //ограничение на шаг по времени с химической реакцией

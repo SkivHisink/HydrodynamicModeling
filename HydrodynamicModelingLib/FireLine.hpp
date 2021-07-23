@@ -142,17 +142,6 @@ public:
 					}
 				}
 				std::cout << "Speed: " << (double)(front - prev_front) * dx / (time_ - old_time) << std::endl;
-				//
-				/*combustion_time.push_back(time_);
-				timeStep_mult += addToTimeStep;
-				std::string save_path = "E:\\University\\6 semester\\Institute\\fireline\\07202021\\";
-				plt::scatter(coordinates, Temp);
-				plt::show();
-				plt::save(save_path + "Temp" + std::to_string((double)N.size() / sub / lineSize) + ".png");
-				plt::scatter(coordinates, N);
-				plt::save(save_path + "N" + std::to_string((double)N.size() / sub / lineSize) + ".png");
-				plt::show();*/
-				//
 				prev_front = front;
 				old_time = time_;
 			}
