@@ -7,6 +7,7 @@ enum typeOfModeling
 	CombustionCylinder,
 	Fireline
 };
+
 int main(int argc, char* argv[])
 {
 	int typeOfM = CombustionParallelepiped;
@@ -14,7 +15,9 @@ int main(int argc, char* argv[])
 	if (typeOfM == CombustionParallelepiped || typeOfM == CombustionCylinder)
 	{
 		CombustionModel* model = new CombustionModel();
-		model->init(destanation, typeOfM);
+		array3d<unsigned short> density;
+		model->initDensity(destanation, density);
+		model->init(density, typeOfM);
 		model->setSaveDataStep(true);
 		model->setShowTimeEachEpoch(true);
 		model->simulate("temp.txt", "N.txt");

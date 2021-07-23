@@ -23,6 +23,9 @@
     <ClInclude Include="CombustionModel.hpp" />
     <ClInclude Include="FireLine.hpp" />
   </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="CombustionModel.cpp" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
