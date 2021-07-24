@@ -7,6 +7,16 @@ enum typeOfModeling
 	CombustionCylinder,
 	Fireline
 };
+void save_in_txt(std::vector<double> time, std::vector<double> data, std::string destanation)
+{
+	std::ofstream file;
+	file.open(destanation + ".txt", std::ios::out | std::ios::binary);
+	file << "Time Data" << std::endl;
+	for (int i = 0; i < data.size(); ++i)
+	{
+		file << time[i] << " " << data[i] << std::endl;
+	}
+}
 
 int main(int argc, char* argv[])
 {
@@ -25,6 +35,8 @@ int main(int argc, char* argv[])
 		model->drawPlotN();
 		model->drawPlotdN();
 		model->drawPlotTemp();
+		save_in_txt(model->time_N, model->Temp_mean, "Temp_mean"+std::to_string(model->getP()));
+		save_in_txt(model->time_N, model->N_mean, "N_mean" + std::to_string(model->getP()));
 	}
 	if (typeOfM == Fireline) {
 		FireLine* line = new FireLine();

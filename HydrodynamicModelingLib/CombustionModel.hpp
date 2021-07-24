@@ -89,24 +89,22 @@ protected:
 	};
 	//Начальные значения переменных
 	double P = 1e10;//10GPa
+	const double P_ = 1e5;//p0
+	const double alpha = 0.0001;
 	double cv = 1300;// Дж/(кг*К)
 	double heat = 4e6; // Теплота реакции Дж/кг
 	double lambda = 10;// теплопроводность Вт/(м*К)
 	double ro1 = 1.6e3; //средняя плотность до нагружения
-	double ro2 = 2.4e3; //средняя плотность после нагружения
+	double ro2 = 1.8e3; //средняя плотность после нагружения
 	double E = 17900;// Температура активации в К
 	double time_ = 0;
-	double k_B = 1e11;//
+	double k_B = 1e7;//
 	double tau = 1e-10;//
 	double dx = 1e-8;
 	//Данные
 	array3d<double> density;
 	array3d<double> N;
 	array3d<double> Temp;
-	//Для графиков
-	std::vector<double> N_mean, time_N;
-	std::vector<double> dN_val;
-	std::vector<double> Temp_mean;
 	//Вспомогательные переменные
 	bool show_logs = true;
 	bool model_init = false;
@@ -117,6 +115,11 @@ protected:
 	double addToTimeStep = 0.005;//
 	int typeOfFigure = Parallelepiped;
 public:
+	//Для графиков
+	std::vector<double> N_mean, time_N;
+	std::vector<double> dN_val;
+	std::vector<double> Temp_mean;
+	std::vector<double> Speed;
 	CombustionModel() = default;
 	void saveInitDensity(const std::string& destination) const { array3d2vtk(density, destination); }
 	void saveInitTemperature(const std::string& destination) const { array3d2vtk(Temp, destination); }
@@ -218,41 +221,15 @@ public:
 		N_mean.push_back(mean(N));
 		time_N.push_back(0);
 		dN_val.push_back(0);
-		/*array3d<double> new_Temp = array3d<double>(Temp.x(), Temp.y(), Temp.z() / 1.5);
-		for (int i = 0; i < new_Temp.x(); ++i)
-		{
-			for (int j = 0; j < new_Temp.y(); ++j) {
-				for (int k = 0; k < new_Temp.z(); k += 2) {
-					if (3 * k / 2 + 3 < Temp.z())
-					{
-						auto max_tmp = std::max(Temp(i, j, 3 * k / 2 + 1), Temp(i, j, 3 * k / 2 + 2));
-						new_Temp(i, j, k) = Temp(i, j, 3 * k / 2);
-						new_Temp(i, j, k + 1) = max_tmp;
-					}
-					else if (3 * k / 2 + 2 < Temp.z())
-					{
-						new_Temp(i, j, k) = Temp(i, j, 3 * k / 2);
-						new_Temp(i, j, k + 1) = Temp(i, j, 3 * k / 2 + 1);
-					}
-					else if (3 * k / 2 + 1 < Temp.z())
-					{
-						new_Temp(i, j, k) = Temp(i, j, 3 * k / 2);
-					}
-				}
-			}
-		}
-		array3d2vtk(new_Temp, "temp2_init" + std::to_string(P) + ".vtk");*/
 		array3d2vtk(Temp, "temp_init" + std::to_string(P) + ".vtk");
 		array3d2vtk(density, "density_init" + std::to_string(P) + ".vtk");
-		//Temp = new_Temp;
 		Temp_mean.push_back(mean(Temp));
-		array3d2vtk(Temp, "temp_init.vtk");
 		tau = max_tau(Temp.max()); //ограничение на шаг по времени с химической реакцией
 		model_init = true;
 		if (show_logs) { std::cout << "Model successful initialized." << std::endl; }
 	}
 protected:
-	double max_tau(const double max) const { return 0.1 / k_B * exp(E / max); }
+	double max_tau(const double max) const { return 0.1 / (k_B * (P_ + alpha * P)) * exp(E / max); }
 	void save_data(const array3d<double>& arr, std::string& name) const;
 
 };
@@ -272,6 +249,11 @@ inline void CombustionModel::simulate(const std::string& temp_name, const std::s
 	double radius = Temp.x() / 2;
 	while (substance_exist(N))
 	{
+		const double max_tau_val = max_tau(Temp.max());
+		if (max_tau_val < temp_tau)
+			tau = max_tau_val;
+		else
+			tau = temp_tau;
 		double tmp = 0.0;
 #pragma omp parallel for collapse(3) reduction(+:tmp)
 		for (int k = 1; k < Temp.z() - 1; ++k)
@@ -285,7 +267,8 @@ inline void CombustionModel::simulate(const std::string& temp_name, const std::s
 						figureCondition = sqrt(pow(radius - i, 2) + pow(radius - j, 2)) < radius;
 					}
 					if (figureCondition) {
-						double dN = -N(i, j, k) * k_B * exp(-E / Temp(i, j, k)) * tau;
+						//double dN = -N(i, j, k) * k_B * exp(-E / Temp(i, j, k)) * tau;
+						double dN = -N(i, j, k) * k_B * (P_ + alpha * P) * exp(-E / Temp(i, j, k)) * tau;
 						if (isnan(dN) || isinf(dN))
 						{
 							if (show_logs)std::cout << "The scheme is destroyed. " << std::endl << "dN is:" << dN <<
@@ -317,12 +300,6 @@ inline void CombustionModel::simulate(const std::string& temp_name, const std::s
 		if (showTimeEachEpoch)
 			std::cout << "N_mean: " << mean_val << " |Time: " << time_ << std::endl;
 		Temp = Temp_new;
-		const double max_tau_val = max_tau(Temp.max());
-		if (max_tau_val < temp_tau)
-			tau = max_tau_val;
-		else
-			tau = temp_tau;
-
 		if (saveStepData)
 		{
 			if (time_ >= 1e-6 * timeStep_mult)
@@ -366,7 +343,6 @@ inline void CombustionModel::simulate(const std::string& temp_name, const std::s
 		{
 			if (time_period < time_)
 			{
-
 				N_mean.push_back(mean_val);
 				time_N.push_back(time_);
 				time_period = time_;
@@ -397,3 +373,28 @@ inline void CombustionModel::save_data(const array3d<double>& arr, std::string& 
 		if (show_logs) std::cout << "Something went wrong in data saving" << std::endl;
 	}
 }
+
+/*array3d<double> new_Temp = array3d<double>(Temp.x(), Temp.y(), Temp.z() / 1.5);
+for (int i = 0; i < new_Temp.x(); ++i)
+{
+	for (int j = 0; j < new_Temp.y(); ++j) {
+		for (int k = 0; k < new_Temp.z(); k += 2) {
+			if (3 * k / 2 + 3 < Temp.z())
+			{
+				auto max_tmp = std::max(Temp(i, j, 3 * k / 2 + 1), Temp(i, j, 3 * k / 2 + 2));
+				new_Temp(i, j, k) = Temp(i, j, 3 * k / 2);
+				new_Temp(i, j, k + 1) = max_tmp;
+			}
+			else if (3 * k / 2 + 2 < Temp.z())
+			{
+				new_Temp(i, j, k) = Temp(i, j, 3 * k / 2);
+				new_Temp(i, j, k + 1) = Temp(i, j, 3 * k / 2 + 1);
+			}
+			else if (3 * k / 2 + 1 < Temp.z())
+			{
+				new_Temp(i, j, k) = Temp(i, j, 3 * k / 2);
+			}
+		}
+	}
+}
+array3d2vtk(new_Temp, "temp2_init" + std::to_string(P) + ".vtk");*/
